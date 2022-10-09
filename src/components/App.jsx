@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { useEffect, useState } from 'react'
 import Searchbar from './Searchbar/Searchbar';
 import { getPhoto } from './API/fetchImages';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -6,106 +6,94 @@ import Modal from './Modal/Modal';
 import Loader from "./Loader/Loader";
 import { Button } from './Button/Button';
 
-export default class App extends Component {
+export default function App() {
 
-  state = {
-    images: [],
-    loading: false,
-    error: null,
-    search: "",
-    page: 1,
-    isModal: false,
-    modalImg: null,
-    tags: '',
-    totalImg: 0,
-    }
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [isModal, setIsModal] = useState(false);
+  const [modalImg, setModalImg] = useState(null);
+  const [tags, setTags] = useState('');
+  const [totalImg, setTotalImg] = useState(0);
 
-componentDidUpdate(_, prevState) {
-    const {page, search} = this.state;
-    if((search && prevState.search !== search) || page > prevState.page) {
-        this.fetchPhoto(search,page);
+useEffect(() => {
+  if (!search) {
+    return;
+  }
+  const fetchPhoto = async () => {
+  setLoading(true);
+
+    try {
+      const data = await getPhoto(page, search);
+
+        if (!data.hits.length) {
+          alert(
+            'Sorry, there are no images matching your search query. Please try again.'
+          );
+        }
+
+        setTotalImg(data.totalHits) 
+
+        setImages((prevImages) => {
+         return [...prevImages, ...data.hits]
+        })
+
+    } catch (error) {
+        setError(error)
     }
+    finally {
+        setLoading(false)
+    }
+    }
+    fetchPhoto();
+}, [page, search])
+
+const handleFormSubmit = imageName => {
+  if (imageName !== search) {
+    setSearch(imageName)
+    setPage(1)
+    setImages([])
+  }
 }
 
-    async fetchPhoto() {
-        const {page, search} = this.state;
-        this.setState({
-            loading: true,
-        });
-    
-        try {
-            const data = await getPhoto(page, search);
-            if (!data.hits.length) {
-              alert(
-                'Sorry, there are no images matching your search query. Please try again.'
-              );
-            }
-            else {
-            this.setState(({images}) => ({
-                images: [...images, ...data.hits],
-                totalImg: data.totalHits,  
-            }))
-          }
-        } catch (error) {
-            this.setState({
-                error,
-            })
-        }
-        finally {
-            this.setState({ loading: false })
-        }
-        }
-        
+const handleLoadMore = (p) => {
+  setPage(p => p + 1 );
+};
 
-        handleFormSubmit = imageName => {
-          if (imageName !== this.state.search) {
-            this.setState({ search: imageName, page: 1, images: [],  });
-          }
-        };
+const openModal = (modalImg, tags) => {
+  setIsModal(true);
+  setModalImg(modalImg)
+  setTags(tags)
+}
 
-        handleLoadMore = () => {
-          this.setState(prevState => ({ page: prevState.page + 1 }));
-        };
+const closeModal = () => {
+  setIsModal(false);
+  setModalImg(null)
+  setTags('')
+}
 
-        openModal = (modalImg, tags) => {
-          this.setState({
-            isModal: true,
-            modalImg,
-            tags,
-          })
-      }
-  
-      closeModal = () => {
-          this.setState({
-            isModal: false,
-            modalContent: {
-              modalImg: null,
-              tags: '',
-              }
-          })
-      }
+const isImages = Boolean(images.length);
 
-  render() {
-    const {images, error, isModal, modalImg, tags, loading, totalImg } = this.state;
-    const isImages = Boolean(images.length);
-
-    return (
-      <div>
+  return (
+    <div>
          {isModal && (
           <Modal
             modalImg={modalImg}
-            onClose={this.closeModal}
+            onClose={closeModal}
             tags={tags}
           />
         )}
-<Searchbar onSubmit={this.handleFormSubmit}/>
+<Searchbar onSubmit={handleFormSubmit}/>
 {error && <p>Sorry! Please try again...</p>}
-{isImages && <ImageGallery images={images} onClick={this.openModal}/>}
+{isImages && <ImageGallery images={images} onClick={openModal}/>}
 {loading && <Loader/>}
 {images.length > 0 && images.length < totalImg && (
-          <Button handleLoadMore={this.handleLoadMore} />
+          <Button handleLoadMore={handleLoadMore} />
         )}
       </div>
-    )
-  }
+  )
 }
+
+
